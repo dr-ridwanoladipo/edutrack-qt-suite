@@ -111,7 +111,6 @@ def init_db():
 
 
 def load_data():
-    """Load data from database into a pandas DataFrame"""
     conn = get_db_connection()
     df = pd.read_sql_query("SELECT * FROM records", conn)
     conn.close()
@@ -182,7 +181,7 @@ def main():
         new_record_name = st.text_input("Record Name", value=st.session_state.record_name)
         new_tab_names = []
         for i, tab in enumerate(st.session_state.tab_names):
-            new_tab_names.append(st.text_input(f"Tab {i+1} Name", value=tab))
+            new_tab_names.append(st.text_input(f"Tab {i + 1} Name", value=tab))
 
         st.header("Column Configuration")
         new_columns = st.text_input("Enter column names (comma-separated)",
@@ -213,14 +212,7 @@ def main():
                 st.error("Failed to update database schema. Customizations saved.")
 
     # Main content
-    col1, col2 = st.columns([1, 11])
-    with col1:
-        if st.button("☰"):
-            st.session_state.sidebar_visible = not st.session_state.sidebar_visible
-            st.rerun()
-
-    with col2:
-        st.title(st.session_state.app_title)
+    st.title(st.session_state.app_title)
 
     init_db()
 
