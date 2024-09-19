@@ -3,6 +3,7 @@ import sqlite3
 import pandas as pd
 import os
 import re
+import json
 
 # Set page config at the very beginning
 st.set_page_config(page_title="Adaptable Management System", layout="wide")
@@ -68,6 +69,26 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+# New function to load configurations from JSON
+def load_config():
+    if os.path.exists('app_config.json'):
+        with open('app_config.json', 'r') as f:
+            return json.load(f)
+    return {
+        "app_title": "Adaptable Management System",
+        "record_name": "Record",
+        "tab_names": ["View Records", "Add Record", "Edit Record", "Delete Record"],
+        "columns": ['id', 'name']
+    }
+
+
+# New function to save configurations to JSON
+def save_config(config):
+    with open('app_config.json', 'w') as f:
+        json.dump(config, f)
+
 
 # Database setup
 DB_FILE = 'data.db'
@@ -139,43 +160,61 @@ def update_database_schema(old_columns, new_columns):
 
 
 def main():
-    # Initialize session state for customizable elements
+    # Load configurations
+    config = load_config()
+
+    # Initialize session state with loaded configurations
     if 'app_title' not in st.session_state:
-        st.session_state.app_title = "Adaptable Management System"
-    if 'tab_names' not in st.session_state:
-        st.session_state.tab_names = ["View Records", "Add Record", "Edit Record", "Delete Record"]
+        st.session_state.app_title = config['app_title']
     if 'record_name' not in st.session_state:
-        st.session_state.record_name = "Record"
+        st.session_state.record_name = config['record_name']
+    if 'tab_names' not in st.session_state:
+        st.session_state.tab_names = config['tab_names']
+    if 'columns' not in st.session_state:
+        st.session_state.columns = config['columns']
 
     # Sidebar for customization
     with st.sidebar:
         st.header("Customization")
-        st.session_state.app_title = st.text_input("App Title", value=st.session_state.app_title)
-        st.session_state.record_name = st.text_input("Record Name", value=st.session_state.record_name)
+        new_app_title = st.text_input("App Title", value=st.session_state.app_title)
+        new_record_name = st.text_input("Record Name", value=st.session_state.record_name)
+        new_tab_names = []
         for i, tab in enumerate(st.session_state.tab_names):
-            st.session_state.tab_names[i] = st.text_input(f"Tab {i + 1} Name", value=tab)
+            new_tab_names.append(st.text_input(f"Tab {i+1} Name", value=tab))
 
         st.header("Column Configuration")
-        st.text_input("Enter column names (comma-separated)",
-                      value=','.join(st.session_state.get('columns', ['id', 'name'])),
-                      key="column_input")
-        if st.button("Update Columns"):
-            old_columns = st.session_state.get('columns', ['id', 'name'])
-            save_column_config()
-            if update_database_schema(old_columns, st.session_state.columns):
-                st.success("Columns updated. Database schema has been modified.")
+        new_columns = st.text_input("Enter column names (comma-separated)",
+                                    value=','.join(st.session_state.columns),
+                                    key="column_input")
+
+        if st.button("Save Customizations"):
+            st.session_state.app_title = new_app_title
+            st.session_state.record_name = new_record_name
+            st.session_state.tab_names = new_tab_names
+            st.session_state.columns = [col.strip() for col in new_columns.split(',') if col.strip()]
+            if 'id' not in st.session_state.columns:
+                st.session_state.columns = ['id'] + st.session_state.columns
+
+            # Save to JSON
+            save_config({
+                "app_title": st.session_state.app_title,
+                "record_name": st.session_state.record_name,
+                "tab_names": st.session_state.tab_names,
+                "columns": st.session_state.columns
+            })
+
+            # Update database schema
+            if update_database_schema(config['columns'], st.session_state.columns):
+                st.success("Customizations saved and database schema updated.")
                 st.rerun()
             else:
-                st.error("Failed to update columns. Please try again.")
+                st.error("Failed to update database schema. Customizations saved.")
 
     # Main content
     st.title(st.session_state.app_title)
 
     init_db()
     df = load_data()
-
-    if 'columns' not in st.session_state:
-        st.session_state.columns = df.columns.tolist()
 
     tabs = st.tabs(st.session_state.tab_names)
 
