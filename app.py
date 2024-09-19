@@ -1,6 +1,7 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
+import time
 import os
 import re
 import json
@@ -110,6 +111,7 @@ def init_db():
 
 
 def load_data():
+    """Load data from database into a pandas DataFrame"""
     conn = get_db_connection()
     df = pd.read_sql_query("SELECT * FROM records", conn)
     conn.close()
@@ -211,22 +213,42 @@ def main():
                 st.error("Failed to update database schema. Customizations saved.")
 
     # Main content
-    st.title(st.session_state.app_title)
+    col1, col2 = st.columns([1, 11])
+    with col1:
+        if st.button("☰"):
+            st.session_state.sidebar_visible = not st.session_state.sidebar_visible
+            st.rerun()
+
+    with col2:
+        st.title(st.session_state.app_title)
 
     init_db()
-    df = load_data()
 
     tabs = st.tabs(st.session_state.tab_names)
 
     with tabs[0]:
         st.header(f"View {st.session_state.record_name}s")
         search_term = st.text_input("Search records")
-        df = load_data()
-        if search_term:
-            df = df[df.astype(str).apply(lambda row: row.str.contains(search_term, case=False).any(), axis=1)]
-        st.dataframe(df, use_container_width=True, key="record_data")
+
+        # Create a placeholder for the dataframe
+        data_placeholder = st.empty()
+
+        # Function to load and display data
+        def load_and_display_data():
+            df = load_data()
+            if search_term:
+                df = df[df.astype(str).apply(lambda row: row.str.contains(search_term, case=False).any(), axis=1)]
+            data_placeholder.dataframe(df, use_container_width=True)
+
+        # Initial data load
+        load_and_display_data()
+
+        # Refresh button with loading animation
         if st.button("Refresh Data"):
-            st.rerun()
+            with st.spinner('Refreshing data...'):
+                time.sleep(0.5)  # Simulate a brief loading time
+                load_and_display_data()
+            st.success('Data refreshed successfully!')
 
     with tabs[1]:
         st.header(f"Add New {st.session_state.record_name}")
