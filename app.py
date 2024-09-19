@@ -116,7 +116,6 @@ def load_data():
     conn.close()
     return df
 
-
 def save_column_config():
     columns = [col.strip() for col in st.session_state.column_input.split(',') if col.strip()]
     if 'id' not in columns:
@@ -225,11 +224,18 @@ def main():
         # Create a placeholder for the dataframe
         data_placeholder = st.empty()
 
+        # Create a placeholder for the success message
+        message_placeholder = st.empty()
+
         # Function to load and display data
         def load_and_display_data():
             df = load_data()
             if search_term:
                 df = df[df.astype(str).apply(lambda row: row.str.contains(search_term, case=False).any(), axis=1)]
+
+            # Remove the default index column
+            df = df.set_index('id')
+
             data_placeholder.dataframe(df, use_container_width=True)
 
         # Initial data load
@@ -240,7 +246,13 @@ def main():
             with st.spinner('Refreshing data...'):
                 time.sleep(0.5)  # Simulate a brief loading time
                 load_and_display_data()
-            st.success('Data refreshed successfully!')
+
+            # Show success message
+            message_placeholder.success('Data refreshed successfully!')
+
+            # Clear success message after 3 seconds
+            time.sleep(3)
+            message_placeholder.empty()
 
     with tabs[1]:
         st.header(f"Add New {st.session_state.record_name}")
