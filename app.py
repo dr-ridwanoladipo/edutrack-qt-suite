@@ -68,6 +68,18 @@ st.markdown("""
         min-width: 50px !important;
         max-width: 50px !important;
     }
+        .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: #2c3e50;
+        color: white;
+        text-align: center;
+        padding: 10px 0;
+        font-weight: bold;
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -407,8 +419,17 @@ def main():
                 conn.close()
 
     # Footer
-    st.markdown("---")
-    st.markdown(f"© 2024 {st.session_state.app_title}. All rights reserved@dr-ridwan.")
+    # st.markdown("---")
+    # st.markdown(f"© 2024 {st.session_state.app_title}. All rights reserved@dr-ridwan.")
+
+    st.markdown(
+        """
+        <div class="footer">
+        © 2024 All Rights Reserved | Dr. Ridwan Oladipo
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 # Main execution
