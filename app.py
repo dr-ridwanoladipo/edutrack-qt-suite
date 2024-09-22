@@ -72,8 +72,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# New function to load configurations from JSON
+# Function to load configurations from JSON file
 def load_config():
+    """
+    Load the application configuration from a JSON file.
+    If the file doesn't exist, return default configuration.
+    """
     if os.path.exists('app_config.json'):
         with open('app_config.json', 'r') as f:
             return json.load(f)
@@ -85,8 +89,11 @@ def load_config():
     }
 
 
-# New function to save configurations to JSON
+# Function to save configurations to JSON file
 def save_config(config):
+    """
+    Save the current application configuration to a JSON file.
+    """
     with open('app_config.json', 'w') as f:
         json.dump(config, f)
 
@@ -96,12 +103,18 @@ DB_FILE = 'data.db'
 
 
 def get_db_connection():
+    """
+    Establish and return a connection to the SQLite database.
+    """
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def init_db():
+    """
+    Initialize the database by creating the 'records' table if it doesn't exist.
+    """
     conn = get_db_connection()
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS records
@@ -111,12 +124,19 @@ def init_db():
 
 
 def load_data():
+    """
+    Load all records from the database into a pandas DataFrame.
+    """
     conn = get_db_connection()
     df = pd.read_sql_query("SELECT * FROM records", conn)
     conn.close()
     return df
 
+
 def save_column_config():
+    """
+    Save the current column configuration, ensuring 'id' is always included.
+    """
     columns = [col.strip() for col in st.session_state.column_input.split(',') if col.strip()]
     if 'id' not in columns:
         columns = ['id'] + columns
@@ -124,28 +144,39 @@ def save_column_config():
 
 
 def sanitize_column_name(name):
+    """
+    Sanitize column names to ensure they are valid SQLite column names.
+    """
     return re.sub(r'\W+', '_', name).lower()
 
 
 def update_database_schema(old_columns, new_columns):
+    """
+    Update the database schema to reflect changes in column configuration.
+    """
     conn = get_db_connection()
     c = conn.cursor()
     try:
+        # Get current table information
         c.execute("PRAGMA table_info(records)")
         current_columns = [row[1] for row in c.fetchall()]
 
+        # Add new columns
         for col in new_columns:
             if col not in current_columns and col != 'id':
                 safe_col = sanitize_column_name(col)
                 c.execute(f"ALTER TABLE records ADD COLUMN {safe_col} TEXT")
 
+        # Create new table with updated schema
         new_cols = ', '.join(
             [f"{sanitize_column_name(col)} {'INTEGER PRIMARY KEY' if col == 'id' else 'TEXT'}" for col in new_columns])
         c.execute(f"CREATE TABLE new_records ({new_cols})")
 
+        # Copy data from old table to new table
         old_cols = ', '.join([sanitize_column_name(col) for col in new_columns if col in current_columns])
         c.execute(f"INSERT INTO new_records ({old_cols}) SELECT {old_cols} FROM records")
 
+        # Replace old table with new table
         c.execute("DROP TABLE records")
         c.execute("ALTER TABLE new_records RENAME TO records")
 
@@ -173,6 +204,38 @@ def main():
     if 'columns' not in st.session_state:
         st.session_state.columns = config['columns']
 
+    # User Guide
+    with st.expander("📘 User Guide - Click to Expand"):
+        st.markdown("""
+        # Welcome to the Adaptable Management System! 🚀
+
+        This system allows you to manage records easily. Here's a quick guide on how to use it:
+
+        1. 🔧 **Customization** (Sidebar):
+           - Change app title, record name, and tab names
+           - Configure and add columns as needed, but the 'id' column is required and can't be changed 
+           - Click 'Save Customizations' to apply changes
+
+        2. 👀 **View Records**:
+           - See all your records in a table
+           - Use the search box to find specific records
+
+        3. ➕ **Add Record**:
+           - Fill in the details for a new record
+           - Click 'Add Record' to save it and 'Refresh Data' to update the view
+
+        4. ✏️ **Edit Record**:
+           - Enter the ID of the record you want to edit
+           - Click 'Load Record Data' to retrieve the record
+           - Make your changes, click 'Update Record' and 'Refresh Data' to update the view
+
+        5. 🗑️ **Delete Record**:
+           - Enter the ID of the record you want to delete
+           - Click 'Delete Record' to remove it and 'Refresh Data' to update the view
+
+        Remember to save your customizations in the sidebar for a personalized experience!
+        """)
+
     # Sidebar for customization
     with st.sidebar:
         st.header("Customization")
@@ -188,6 +251,7 @@ def main():
                                     key="column_input")
 
         if st.button("Save Customizations"):
+            # Update session state with new configurations
             st.session_state.app_title = new_app_title
             st.session_state.record_name = new_record_name
             st.session_state.tab_names = new_tab_names
@@ -215,16 +279,16 @@ def main():
 
     init_db()
 
+    # Create tabs
     tabs = st.tabs(st.session_state.tab_names)
 
+    # View Records Tab
     with tabs[0]:
         st.header(f"View {st.session_state.record_name}s")
         search_term = st.text_input("Search records")
 
-        # Create a placeholder for the dataframe
+        # Create placeholders for data and messages
         data_placeholder = st.empty()
-
-        # Create a placeholder for the success message
         message_placeholder = st.empty()
 
         # Function to load and display data
@@ -254,6 +318,7 @@ def main():
             time.sleep(3)
             message_placeholder.empty()
 
+    # Add Record Tab
     with tabs[1]:
         st.header(f"Add New {st.session_state.record_name}")
         with st.form("add_record_form"):
@@ -277,6 +342,7 @@ def main():
                 finally:
                     conn.close()
 
+    # Edit Record Tab
     with tabs[2]:
         st.header(f"Edit {st.session_state.record_name}")
         edit_id = st.number_input(f"Enter {st.session_state.record_name} ID to edit", min_value=1, step=1)
@@ -320,6 +386,7 @@ def main():
                     finally:
                         conn.close()
 
+# Delete Record Tab
     with tabs[3]:
         st.header(f"Delete {st.session_state.record_name}")
         delete_id = st.number_input(f"Enter {st.session_state.record_name} ID to delete", min_value=1, step=1)
@@ -327,6 +394,7 @@ def main():
             conn = get_db_connection()
             c = conn.cursor()
             try:
+                # Execute delete query
                 c.execute("DELETE FROM records WHERE id = ?", (delete_id,))
                 if c.rowcount > 0:
                     conn.commit()
@@ -343,5 +411,6 @@ def main():
     st.markdown(f"© 2024 {st.session_state.app_title}. All rights reserved@dr-ridwan.")
 
 
+# Main execution
 if __name__ == "__main__":
     main()
